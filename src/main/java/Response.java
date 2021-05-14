@@ -54,7 +54,7 @@ public class Response {
     }
 
     public void prepareResponseFile() throws IOException {
-        Path filePath = getFilePath(path);
+        Path filePath = getFilePath(path, host);
         if (Files.exists(filePath)) {
             // file exist
             String contentType = guessContentType(filePath);
@@ -66,11 +66,11 @@ public class Response {
         }
     }
 
-    private Path getFilePath(String path) {
+    private Path getFilePath(String path, String host) {
         if ("/".equals(path)) {
             path = "/index.html";
         }
-        return Paths.get("tmp/www/verti", path);
+        return Paths.get("tmp/www/" + host, path);
     }
 
     private String guessContentType(Path filePath) throws IOException {
