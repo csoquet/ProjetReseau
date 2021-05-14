@@ -21,7 +21,7 @@ public class Server {
 
     public static void main(String[] args ) throws Exception {
         int availableCores = Runtime.getRuntime().availableProcessors();
-        new Server(new ServerSocket(8080), Executors.newFixedThreadPool(availableCores)).start();
+        new Server(new ServerSocket(80), Executors.newFixedThreadPool(availableCores)).start();
     }
 
     public void start()throws IOException{
