@@ -20,6 +20,7 @@ public class Server {
     }
 
     public static void main(String[] args ) throws Exception {
+        System.out.println("Le serveur est lancé !");
         int availableCores = Runtime.getRuntime().availableProcessors();
         Scanner sc = new Scanner(new File("properties.txt"));
         List<String> tab = new ArrayList<String>();
