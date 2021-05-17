@@ -116,16 +116,23 @@ public class Response {
         return data;
     }
 
-    private Path getFilePath(String path, String host, boolean allowed) {
+    private Path getFilePath(String path, String host,boolean allowed) throws IOException {
+        //Lecture du fichier properties.
+        Scanner sc = new Scanner(new File("properties.txt"));
+        List<String> tab = new ArrayList<String>();
+        while(sc.hasNextLine()){
+            tab.add(sc.nextLine());
+        }
+        String chemin = tab.get(0).substring(tab.get(0).indexOf(":")+1); //Permet de récuperer le repertoire racine dans le fichier properties
         if ("/".equals(path)) {
             path = "/index.html";
         }
-        File currentFolder = new File("tmp/www/"+host+"/.htpasswd");
+        File currentFolder = new File(chemin+host+"/.htpasswd");
         boolean folderIsProtected = currentFolder.exists();
         if(folderIsProtected && !allowed){
-            return  Paths.get("tmp/www/loginPage/index.html");
+            return  Paths.get(chemin+"loginPage/index.html");
         }else{
-            return Paths.get("tmp/www/" + host, path);
+            return Paths.get(chemin + host, path);
         }
     }
 
@@ -135,5 +142,7 @@ public class Response {
                 time,this.socket.toString(), method, path, version, host, headers.toString());
         System.out.println(accessLog);
     }
+
+
 
 }

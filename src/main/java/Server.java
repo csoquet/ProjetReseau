@@ -1,11 +1,9 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,7 +19,13 @@ public class Server {
 
     public static void main(String[] args ) throws Exception {
         int availableCores = Runtime.getRuntime().availableProcessors();
-        new Server(new ServerSocket(80), Executors.newFixedThreadPool(availableCores)).start();
+        Scanner sc = new Scanner(new File("properties.txt"));
+        List<String> tab = new ArrayList<String>();
+        while(sc.hasNextLine()){
+            tab.add(sc.nextLine());
+        }
+        int port = Integer.parseInt(tab.get(1).substring(tab.get(1).indexOf(":")+1)); // Permet de récuperer le numéro de port dans la deuxième ligne du fichier
+        new Server(new ServerSocket(port), Executors.newFixedThreadPool(availableCores)).start();
     }
 
     public void start()throws IOException{
@@ -31,5 +35,10 @@ public class Server {
              OutputStream out = connection.getOutputStream();
              pool.execute(new ClientHandler(connection,in,out));
         }
+    }
+
+    private static String removeColon(String str) {
+        str = str.substring(str.indexOf(":")+1);
+        return str.trim();
     }
 }
