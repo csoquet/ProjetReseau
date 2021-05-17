@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
@@ -17,12 +18,12 @@ public class ClientHandler implements Runnable {
     public void run(){
         try{
             invoke();
-        }catch (IOException e){
+        }catch (IOException | NoSuchAlgorithmException e){
             e.printStackTrace();
         }
     }
 
-    void invoke() throws IOException{
+    void invoke() throws IOException, NoSuchAlgorithmException {
         Response response = new Response(inputStream,socket,outputStream);
         response.log();
         response.prepareResponseFile();

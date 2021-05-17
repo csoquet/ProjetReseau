@@ -1,18 +1,24 @@
 import java.io.*;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
 import java.util.zip.GZIPOutputStream;
+
 
 public class Response {
 
     //Données pour construire la réponse.
     private final String method;
-    private final String path;
+    private String path;
     private final String version;
     private final String host;
 
@@ -21,10 +27,11 @@ public class Response {
     private final Socket socket;
     private final OutputStream outputStream;
 
+    private boolean allowed;
+
     public Response(InputStream inputStream,Socket socket, OutputStream outputStream) throws IOException {
         this.socket = socket;
         this.outputStream = outputStream;
-
         BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
         StringBuilder requestBuilder = new StringBuilder();
         String line;
@@ -57,10 +64,28 @@ public class Response {
         socket.close();
     }
 
-    public void prepareResponseFile() throws IOException {
-        Path filePath = getFilePath(path, host);
+    public void prepareResponseFile() throws IOException, NoSuchAlgorithmException {
+        Path filePath = getFilePath(path, host, false);
+        if(path.contains("?")){ //Il y a des paramètres dans la requête.
+            //Récupération de l'username et du password da la requête GET.
+            String username = path.substring(path.indexOf('=')+1,path.indexOf('&'));
+            String password = path.substring(path.lastIndexOf('=')+1,path.length());
+
+            //Récupération de l'username et du password du fichier htpasswd.
+            File file = new File("tmp/www/"+host+"/.htpasswd");;
+            Scanner sc = new Scanner(file);
+            sc.useDelimiter("\\R");
+            String actualUsername = sc.next();
+            String actualPassword = sc.next();
+
+            if(getMD5(password).equals(actualPassword) && username.equals(actualUsername)){
+                path = "/";
+                filePath = getFilePath(path,host,true);
+            }
+        }
         //Si le fichier existe...
         if (Files.exists(filePath)) {
+            System.out.println(filePath);
             String contentType = Files.probeContentType(filePath);
             byte[] data =  Files.readAllBytes(filePath); //Données à transmettre au client.
             sendResponse("200 OK", contentType,compressRessource(data));
@@ -68,6 +93,17 @@ public class Response {
             byte[] notFoundContent = "<h1>Not found</h1>".getBytes();
             sendResponse("404 Not Found", "text/html", notFoundContent);
         }
+    }
+
+    private String getMD5(String password) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] messageDigest = md.digest(password.getBytes());
+        BigInteger no = new BigInteger(1, messageDigest);
+        String hashtext = no.toString(16);
+        while (hashtext.length() < 32) {
+            hashtext = "0" + hashtext;
+        }
+        return hashtext;
     }
 
     private byte[] compressRessource(byte[] data) throws IOException{
@@ -80,11 +116,17 @@ public class Response {
         return data;
     }
 
-    private Path getFilePath(String path, String host) {
+    private Path getFilePath(String path, String host, boolean allowed) {
         if ("/".equals(path)) {
             path = "/index.html";
         }
-        return Paths.get("tmp/www/" + host, path);
+        File currentFolder = new File("tmp/www/"+host+"/.htpasswd");
+        boolean folderIsProtected = currentFolder.exists();
+        if(folderIsProtected && !allowed){
+            return  Paths.get("tmp/www/loginPage/index.html");
+        }else{
+            return Paths.get("tmp/www/" + host, path);
+        }
     }
 
     public void log(){
