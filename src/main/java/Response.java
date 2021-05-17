@@ -1,14 +1,12 @@
 import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.zip.GZIPOutputStream;
@@ -26,18 +24,20 @@ public class Response {
     private final List<String> headers;
     private final Socket socket;
     private final OutputStream outputStream;
-
-    private boolean allowed;
+    private String cookies = "";
 
     public Response(InputStream inputStream,Socket socket, OutputStream outputStream) throws IOException {
         this.socket = socket;
         this.outputStream = outputStream;
+
         BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
         StringBuilder requestBuilder = new StringBuilder();
         String line;
         while (!(line = br.readLine()).isBlank()) {
             requestBuilder.append(line + "\r\n");
         }
+
+        //On commence le parsing de la requete...
         String request = requestBuilder.toString();
         String[] requestsLines = request.split("\r\n");
         String[] requestLine = requestsLines[0].split(" ");
@@ -49,10 +49,14 @@ public class Response {
         headers = new ArrayList<>();
         for (int h = 2; h < requestsLines.length; h++) {
             String header = requestsLines[h];
+            if(header.contains("Cookie")){ //On  extrait les cookies pour gérer l'authentification.
+                this.cookies = header.substring(header.indexOf(":")+1);
+            }
             headers.add(header);
         }
     }
 
+    //Construction d'une réponse pour le client.
     private void sendResponse(String status, String contentType, byte[] content) throws IOException {
         outputStream.write(("HTTP/1.1 \r\n" + status).getBytes());
         outputStream.write(("ContentType: " + contentType + "\r\n").getBytes());
@@ -64,8 +68,22 @@ public class Response {
         socket.close();
     }
 
+    //Surcharge de la méthode réponse, celle-ci est capable d'envoyer un cookie.
+    private void sendResponse(String status, String contentType, byte[] content,String cookie,String cookieValue) throws IOException {
+        outputStream.write(("HTTP/1.1 \r\n" + status).getBytes());
+        outputStream.write(("ContentType: " + contentType + "\r\n").getBytes());
+        outputStream.write(("Set-Cookie:" + cookie + "=" + cookieValue + "\r\n").getBytes());
+        outputStream.write(("Content-Encoding:" + "gzip" + "\r\n").getBytes());
+        outputStream.write("\r\n".getBytes());
+        outputStream.write(content);
+        outputStream.write("\r\n\r\n".getBytes());
+        outputStream.flush();
+        socket.close();
+    }
+
     public void prepareResponseFile() throws IOException, NoSuchAlgorithmException {
         Path filePath = getFilePath(path, host, false);
+        boolean connected = false;
         if(path.contains("?")){ //Il y a des paramètres dans la requête.
             //Récupération de l'username et du password da la requête GET.
             String username = path.substring(path.indexOf('=')+1,path.indexOf('&'));
@@ -81,6 +99,7 @@ public class Response {
             if(getMD5(password).equals(actualPassword) && username.equals(actualUsername)){
                 path = "/";
                 filePath = getFilePath(path,host,true);
+                connected = true;
             }
         }
         //Si le fichier existe...
@@ -88,13 +107,17 @@ public class Response {
             System.out.println(filePath);
             String contentType = Files.probeContentType(filePath);
             byte[] data =  Files.readAllBytes(filePath); //Données à transmettre au client.
-            sendResponse("200 OK", contentType,compressRessource(data));
+            if(connected){ // Si l'authentification est valide on set un cookie qui correspond a l'host courant...
+                sendResponse("200 OK", contentType,compressRessource(data),host,"allowed");
+            }else {
+                sendResponse("200 OK", contentType,compressRessource(data));
+            }
         } else { //Si le fichier n'existe pas... Erreur 404
             byte[] notFoundContent = "<h1>Not found</h1>".getBytes();
             sendResponse("404 Not Found", "text/html", notFoundContent);
         }
     }
-
+    //Permet de récupérer un String qui représente le password passé en parametre.
     private String getMD5(String password) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("MD5");
         byte[] messageDigest = md.digest(password.getBytes());
@@ -106,6 +129,7 @@ public class Response {
         return hashtext;
     }
 
+    //Permet de compresser un fichier au format GZIP.
     private byte[] compressRessource(byte[] data) throws IOException{
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         GZIPOutputStream gzip = new GZIPOutputStream(bos);
@@ -127,9 +151,10 @@ public class Response {
         if ("/".equals(path)) {
             path = "/index.html";
         }
+        //SI le dossier courant contient un fichier htpasswd alors il est protégé, il faut vérifier si l'utilisateur à le droit d'y accèder.
         File currentFolder = new File(chemin+host+"/.htpasswd");
         boolean folderIsProtected = currentFolder.exists();
-        if(folderIsProtected && !allowed){
+        if(folderIsProtected && !allowed && !this.cookies.contains(host)){ //Un cookie contenant le host existe alors l'utilisateur à le droit d'accèder à la ressource.
             return  Paths.get(chemin+"loginPage/index.html");
         }else{
             return Paths.get(chemin + host, path);
