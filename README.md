@@ -1,5 +1,10 @@
 # ProjetReseau
 
+## Installer l'application
+
+L'application a été réalisée avec maven, il faut installer le POM.xml avec "mvn install" pour générer le bindist.
+![Image](https://cdn.discordapp.com/attachments/781100754206720021/843898650799112252/unknown.png)
+
 ## Lancement de l'application
 
 Il suffit d'aller dans le dossier du Projet Reseau, ensuite d'aller dans le dossier bindist et ensuite bin. Pour finir, il faut lancer un invite de commandes et lancer run.
