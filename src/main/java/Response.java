@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.zip.GZIPOutputStream;
 
 public class Response {
@@ -80,11 +81,17 @@ public class Response {
         return data;
     }
 
-    private Path getFilePath(String path, String host) {
+    private Path getFilePath(String path, String host) throws IOException {
+        Scanner sc = new Scanner(new File("properties.txt"));
+        List<String> tab = new ArrayList<String>();
+        while(sc.hasNextLine()){
+            tab.add(sc.nextLine());
+        }
+        String chemin = tab.get(0).substring(tab.get(0).indexOf(":")+1); //Permet de récuperer le repertoire racine dans le fichier properties
         if ("/".equals(path)) {
             path = "/index.html";
         }
-        return Paths.get("tmp/www/" + host, path);
+        return Paths.get( chemin + host, path);
     }
 
     public void log(){
@@ -93,5 +100,7 @@ public class Response {
                 time,this.socket.toString(), method, path, version, host, headers.toString());
         System.out.println(accessLog);
     }
+
+
 
 }
